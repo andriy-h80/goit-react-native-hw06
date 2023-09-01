@@ -1,6 +1,50 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useState, useEffect } from "react";
+
+import { db, auth } from "../firebase/config";
+import { signOut, onAuthStateChanged } from "firebase/auth";
+import { collection, getDocs } from "firebase/firestore";
 
 const PostsScreen = ({ navigation }) => {
+  const [posts, setPosts] = useState([]);
+  const [userData, setUserData] = useState([]);
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (userAuth) => {
+      if (userAuth) {
+        const currentUser = auth.currentUser;
+        setUserData(currentUser);
+      }
+    });
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const getDataFromFirestore = async () => {
+        try {
+          const snapshot = await getDocs(collection(db, "posts"));
+          const postsList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            data: doc.data(),
+          }));
+          setPosts(postsList);
+          return postsList;
+        } catch (error) {
+          throw error;
+        }
+      };
+
+      getDataFromFirestore();
+    }, [])
+  );
+
+  const logOut = async () => {
+    await signOut(auth);
+    setUserData([]);
+    navigation.navigate("Login");
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -9,7 +53,7 @@ const PostsScreen = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.buttonLogOut}
-          onPress={() => navigation.navigate("Login")}>
+          onPress={() => logOut()}>
           <Image
             style={styles.iconLogOut}
             source={require("../images/log-out.png")}
@@ -23,83 +67,64 @@ const PostsScreen = ({ navigation }) => {
             source={require("../images/avatar.jpg")}
           />
           <View>
-            <Text style={styles.userName}>Natali Romanova</Text>
-            <Text style={styles.userEmail}>email@example.com</Text>
+            <Text style={styles.userName}>
+              {userData.displayName && userData.displayName}
+            </Text>
+            <Text style={styles.userEmail}>
+              {userData.email}
+            </Text>
           </View>
         </View>
       </View>
-      <View style={styles.posts}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.post}>
-            <TouchableOpacity
-              style={styles.postImageLink}
-              onPress={() => navigation.navigate("Home")}
-            >
+
+      <ScrollView style={styles.scrollContent}>
+        <View style={styles.postView}>
+          {posts && (
+            <View style={styles.posts}>
+            {posts.map((postItem) => (
+              <View key={postItem.id} style={styles.post}>
+              <TouchableOpacity
+                style={styles.postImageLink}
+                onPress={() => navigation.navigate("Comment", { postId: postItem.id })}
+              >
               <Image
                 style={styles.postImage}
-                source={require("../images/forest.jpg")}
+                source={{ uri: postItem.data.previewImage }}
               />
-            </TouchableOpacity>
-            <View style={styles.postContent}>
-              <Text style={styles.postTitle}>Ліс</Text>
-              <View style={styles.postMeta}>
-                <TouchableOpacity style={styles.postComments} onPress={() => navigation.navigate("Comments")}>
+              </TouchableOpacity>
+              <View style={styles.postContent}>
+                <Text style={styles.postTitle}>{postItem.data.title}</Text>
+                <View style={styles.postMeta}>
+                <TouchableOpacity style={styles.postComments} onPress={() => navigation.navigate("Comments", { postId: postItem.id })}>
                   <Image
                     style={styles.postIcon}
-                    source={require("../images/comments-o.png")}
+                    source={ postItem.data.comments.length !== 0
+                      ? require("../images/comments.png")
+                      : require("../images/comments-o.png")}
                   />
-                  <Text style={styles.postCount}>0</Text>
+                  <Text style={styles.postCount}>
+                    {postItem.data.comments.length}
+                  </Text>
                 </TouchableOpacity>
                 <View style={styles.postLocationInfo}>
                   <Image
                     style={styles.postIcon}
                     source={require("../images/map.png")}
                   />
-                  <TouchableOpacity onPress={() => navigation.navigate("Map")}>
+                  <TouchableOpacity onPress={() => navigation.navigate("Map", { postId: postItem.id })}>
                   <Text style={styles.postLocationAddress}>
-                    Ivano-Frankivs'k Region, Ukraine
+                    {postItem.data.locationText}
                   </Text>
                   </TouchableOpacity>
+                </View>
                 </View>
               </View>
             </View>
+          ))}
           </View>
-          <View style={styles.post}>
-            <TouchableOpacity
-              style={styles.postImageLink}
-              onPress={() => navigation.navigate("Home")}
-            >
-              <Image
-                style={styles.postImage}
-                source={require("../images/sunset.jpg")}
-              />
-            </TouchableOpacity>
-            {/* <View style={styles.postContent}>
-              <Text style={styles.postTitle}>Захід на Чорному морі</Text>
-              <View style={styles.postMeta}>
-                <View style={styles.postComments} onPress={() => navigation.navigate("Comments")}>
-                  <Image
-                    style={styles.postIcon}
-                    source={require("../images/comments-o.png")}
-                  />
-                  <Text style={styles.postCount}>0</Text>
-                </View>
-                <View style={styles.postLocationInfo}>
-                  <Image
-                    style={styles.postIcon}
-                    source={require("../images/map.png")}
-                  />
-                  <TouchableOpacity onPress={() => navigation.navigate("Map")}>
-                  <Text style={styles.postLocationAddress}>
-                    Odesa Region, Ukraine
-                  </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View> */}
-          </View>
-        </ScrollView>
-      </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -171,6 +196,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
+  postView: {
+
+  },
   post: {
     marginBottom: 32,
   },
@@ -181,6 +209,13 @@ const styles = StyleSheet.create({
     height: 240,
     borderRadius: 8,
     width: "100%",
+  },
+  postContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
   },
   postTitle: {
     fontSize: 16,
@@ -199,7 +234,7 @@ const styles = StyleSheet.create({
   },
   postCount: {
     fontSize: 16,
-    lineHeight: 18,
+    // lineHeight: 18,
     color: "#BDBDBD",
   },
   postComments: {

@@ -1,3 +1,5 @@
+import React, {useState,useEffect} from "react";
+import { useRoute } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -6,8 +8,40 @@ import {
   Image,
   Dimensions } from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import { db } from "../firebase/config";
+import {
+  collection,
+  getDocs,
+} from "firebase/firestore";
 
 const MapScreen = ({navigation}) => {
+
+  const [postItem, setPostItem] = useState(null);
+  const route = useRoute();
+  const { postId } = route.params;
+
+  useEffect(() => {
+    const getDataFromFirestore = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "posts"));
+        const post = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            data: doc.data(),
+          }))
+          .filter((docData) => docData.id === postId);
+
+        setPostItem(post[0]);
+        return post;
+      } catch (error) {
+        console.log(error);
+        throw error;
+      }
+    };
+
+    getDataFromFirestore();
+  }, []);
+
   return (
     <View style={styles.container}>
        <View style={styles.header}>
@@ -22,13 +56,14 @@ const MapScreen = ({navigation}) => {
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.titleContainerText}>Карта</Text>
+          </View>
         </View>
-        </View>
+      {postItem && (
       <MapView
         style={styles.mapStyle}
         region={{
-          latitude: 48.6251482,
-          longitude: 22.2979421,
+          latitude: postItem.data.location.latitude,
+          longitude: postItem.data.location.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
@@ -43,6 +78,7 @@ const MapScreen = ({navigation}) => {
           description='Hello'
         />
       </MapView>
+      )}
     </View>
   );
 };

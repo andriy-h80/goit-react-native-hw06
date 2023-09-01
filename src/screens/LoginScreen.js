@@ -12,6 +12,9 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import React, { useState, useEffect  } from "react";
+import { auth } from "../firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
+import { loginDB } from "../redux/services/userService";
   
 const LoginScreen = ({ navigation }) => {
   const [focusedInput, setFocusedInput] = useState(null);
@@ -26,17 +29,28 @@ const LoginScreen = ({ navigation }) => {
     setIsFormValid(email !== "" && password !== "");
   }, [email, password]);
 
-  const signIn = () => {
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setEmail("");
+        setPassword("");
+        navigation.navigate("Home");
+      } else {
+        navigation.navigate('Login');
+      }
+    });
+  }, []);
+
+  const signIn = async () => {
     if (isFormValid) {
     setEmail(email);
     setPassword(password);
 
-    console.log({ Email: email, Password: password });
-
-    setEmail("");
-    setPassword("");
-
-    navigation.navigate("Home");
+    try {
+      await loginDB(email, password);
+    } catch (error) {
+      console.log("There is no user in db");
+    }
     }
   };
 

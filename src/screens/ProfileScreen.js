@@ -12,10 +12,73 @@ import {
   ScrollView,
 } from "react-native";
 import React, { useState, useEffect } from "react";
-  
+import { auth, db } from "../firebase/config";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { useDispatch, useSelector } from "react-redux";
+
+import { signOut, onAuthStateChanged } from "firebase/auth";
+
+
 const ProfileScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const [posts, setPosts] = useState([]);
+  const [userData, setUserData] = useState([]);
+  
+  useEffect(() => {
+    onAuthStateChanged(auth, (authUser) => {
+      if (authUser) {
+        const user = auth.currentUser;
+        setUserData(user);
+      }
+    });
+  }, []);
+  
+  useEffect(() => {
+    const getDataFromFirestore = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "posts"));
+        const postsList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+        setPosts(postsList);
+        return postsList;
+      } catch (error) {
+        console.log(error);
+        throw error;
+      }
+    };
+  
+    getDataFromFirestore();
+  }, []);
+
   const addImage = (event) => {
     event.preventDefault();
+  };
+
+  const logOut = async () => {
+    await signOut(auth);
+    setUserData([])
+    navigation.navigate("Login");
+  };
+
+  const handleLikes = async (postId, postIndex) => {
+    try {
+      const updatedPosts = [...posts];
+      const currentLikes = updatedPosts[postIndex].data.likes;
+      const updatedLikes = currentLikes + 1;
+
+      const docRef = doc(collection(db, "posts"), postId);
+      await updateDoc(docRef, {
+        likes: updatedLikes,
+      });
+
+      updatedPosts[postIndex].data.likes = updatedLikes;
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   };
   
   return (
@@ -35,7 +98,7 @@ const ProfileScreen = ({ navigation }) => {
           <View>
             <TouchableOpacity
               style={styles.buttonLogOut}
-              onPress={() => navigation.navigate("Login")}
+              onPress={logOut}
             >
               <Image
                 style={styles.iconLogOut}
@@ -56,126 +119,81 @@ const ProfileScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           <View style={styles.titleContainer}>
-            <Text style={styles.nameTitle}>Natali Romanova</Text>
+            <Text style={styles.nameTitle}>
+              {userData.displayName && userData.displayName}
+            </Text>
           </View>
-          <View style={styles.posts}>
-            <ScrollView>
-              <View style={styles.post}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {posts && (
+            <View style={styles.posts}>
+            {posts.map((postItem, index) => (
+              <View key={postItem.id} style={styles.post}>
                 <TouchableOpacity
                   style={styles.postImageLink}
-                  onPress={() => navigation.navigate("Home")}
+                  onPress={() => navigation.navigate(
+                    "Comments", {postId: postItem.id, }
+                  )}
                 >
                   <Image
                     style={styles.postImage}
-                    source={require("../images/forest.jpg")}
+                    source={{ uri: postItem.data.photo }}
                   />
                 </TouchableOpacity>
                   <View style={styles.postContent}>
-                    <Text style={styles.postTitle}>Ліс</Text>
+                    <Text style={styles.postTitle}>
+                      {postItem.data.title}  
+                    </Text>
                     <View style={styles.postMeta}>
-                      <View style={styles.postComments}>
+                      <TouchableOpacity style={styles.postComments} onPress={() =>
+                              navigation.navigate("Comments", {
+                                postId: postItem.id,
+                              })}>
                         <Image
                           style={styles.postIcon}
-                          source={require("../images/comments.png")}
+                          source={postItem.data.comments.length !== 0
+                            ? require("../images/comments.png")
+                            : require("../images/comments-o.png")}
                         />
-                        <Text style={styles.postCount}>8</Text>
-                      </View>
-                      <View style={styles.postLikes}>
+                        <Text style={styles.postCount}>
+                          {postItem.data.comments.length}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                      onPress={() => handleLikes(postItem.id, index)}
+                      style={styles.postLikes}>
                         <Image
                           style={styles.postIcon}
                           source={require("../images/like.png")}
                         />
-                        <Text style={styles.postCount}>153</Text>
-                      </View>
+                        <Text style={styles.postCount}>
+                          {postItem.data.likes}
+                        </Text>
+                      </TouchableOpacity>
                       <View style={styles.postLocationInfo}>
                         <Image
                           style={styles.postIcon}
                           source={require("../images/map.png")}
                         />
-                        <Text style={styles.postLocationAddress}>Ukraine</Text>
+                        <TouchableOpacity
+                          onPress={() =>
+                            navigation.navigate("Map", {postId: postItem.id,})
+                          }
+                        >
+                        <Text style={styles.postLocationAddress}>
+                          {postItem.data.locationText}
+                        </Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </View>
               </View>
-              <View style={styles.post}>
-                <TouchableOpacity
-                  style={styles.postImageLink}
-                  onPress={() => navigation.navigate("Home")}
-                >
-                  <Image
-                    style={styles.postImage}
-                    source={require("../images/sunset.jpg")}
-                    />
-                </TouchableOpacity>
-                  <View style={styles.postContent}>
-                    <Text style={styles.postTitle}>Захід на Чорному морі</Text>
-                    <View style={styles.postMeta}>
-                      <View style={styles.postComments}>
-                        <Image
-                          style={styles.postIcon}
-                          source={require("../images/comments.png")}
-                        />
-                        <Text style={styles.postCount}>3</Text>
-                      </View>
-                      <View style={styles.postLikes}>
-                        <Image
-                          style={styles.postIcon}
-                          source={require("../images/like.png")}
-                        />
-                        <Text style={styles.postCount}>200</Text>
-                      </View>
-                      <View style={styles.postLocationInfo}>
-                        <Image
-                          style={styles.postIcon}
-                          source={require("../images/map.png")}
-                        />
-                        <Text style={styles.postLocationAddress}>Ukraine</Text>
-                      </View>
-                    </View>
-                  </View>
+              ))}      
                 </View>
-                <View style={styles.post}>
-                  <TouchableOpacity
-                    style={styles.postImageLink}
-                    onPress={() => navigation.navigate("Home")}
-                  >
-                    <Image
-                      style={styles.postImage}
-                      source={require("../images/house.jpg")}
-                    />
-                  </TouchableOpacity>
-                    <View style={styles.postContent}>
-                      <Text style={styles.postTitle}>Старий будиночок у Венеції</Text>
-                      <View style={styles.postMeta}>
-                        <View style={styles.postComments}>
-                          <Image
-                            style={styles.postIcon}
-                            source={require("../images/comments.png")}
-                          />
-                          <Text style={styles.postCount}>50</Text>
-                        </View>
-                        <View style={styles.postLikes}>
-                          <Image
-                            style={styles.postIcon}
-                            source={require("../images/like.png")}
-                          />
-                          <Text style={styles.postCount}>200</Text>
-                        </View>
-                        <View style={styles.postLocationInfo}>
-                          <Image
-                            style={styles.postIcon}
-                            source={require("../images/map.png")}
-                          />
-                          <Text style={styles.postLocationAddress}>Italy</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </ScrollView>
-              </View>
-            </KeyboardAvoidingView>
-          </ImageBackground>
-        </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+        </ImageBackground>
+      </View>
     </TouchableWithoutFeedback>
   );
 };

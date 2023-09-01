@@ -13,6 +13,9 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import React, { useState, useEffect } from "react";
+import { auth } from "../firebase/config";
+import { onAuthStateChanged, updateProfile } from "firebase/auth";
+import { registerDB } from "../redux/services/userService";
   
 const RegistrationScreen = ({ navigation }) => {
   const [focusedInput, setFocusedInput] = useState(null);
@@ -32,25 +35,32 @@ const RegistrationScreen = ({ navigation }) => {
     e.preventDefault();
   };
 
-  const signUp = () => {
-    if (isFormValid) {
-      setLogin(login);
-      setEmail(email);
-      setPassword(password);
-  
-      console.log({ Login: login, Email: email, Password: password });
-      
-      setLogin("");
-      setEmail("");
-      setPassword("");
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setLogin("");
+        setEmail("");
+        setPassword("");
+        navigation.navigate("Home");
+      } else {
+        navigation.navigate('Login');
+      }
+    });
+  }, []);
 
-      navigation.navigate("Home");
-    }
-  };
   const showPassword = () => {
     setTogglePassword(!togglePassword);
   };
   
+  const signUp = async () => {
+    if (isFormValid) {
+      await registerDB(email, password);
+      updateProfile(auth.currentUser, {
+        displayName: login,
+      });
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>

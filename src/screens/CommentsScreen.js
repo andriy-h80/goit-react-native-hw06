@@ -1,3 +1,4 @@
+import { TextInput } from "react-native-gesture-handler";
 import {
   View,
   Text,
@@ -8,13 +9,44 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
-import { TextInput } from "react-native-gesture-handler";
-import React, { useState } from "react";
+import { useRoute } from "@react-navigation/native";
+import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase/config";
+import { addComment } from "../redux/slices/commentsSlice";
   
 const CommentsScreen = ({navigation}) => {
+  const dispatch = useDispatch();
   const [focusedInput, setFocusedInput] = useState(null);
   const [comment, setComment] = useState('');
   const [isCommentEntered, setIsCommentEntered] = useState(false);
+  const [postComment, setPostComment] = useState(null);
+
+  const route = useRoute();
+  const { postId } = route.params;
+
+  const getDataFromFirestore = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "posts"));
+      const post = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+        .filter((docData) => docData.id === postId);
+
+      setPostComment(post[0]);
+      return post;
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    getDataFromFirestore();
+  }, []);
     
   const currentDate = new Date();
   const formattedDate = `${currentDate.toLocaleDateString("uk-UA", {
@@ -26,13 +58,19 @@ const CommentsScreen = ({navigation}) => {
     minute: "2-digit",
   })}`;
   
-  const postComment = () => {
-    if (isCommentEntered) {
-      setComment(comment);
-    // console.log(comment)
-      setComment('')
+  const postNewComment = async () => {
+    const trimmedComment = comment.trim();
+
+    if (isCommentEntered && trimmedComment !== "") {
+      setComment(trimmedComment);
+
+      dispatch(addComment({ postId, comment: trimmedComment, formattedDate }));
+
+      setComment("");
+      
+      await getDataFromFirestore();
     }
-  }
+  };
   
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -51,57 +89,48 @@ const CommentsScreen = ({navigation}) => {
             <Text style={styles.titleContainerText}>Коментарі</Text>
           </View>
         </View>
+
+        <View style={styles.imageContainer}>
+          {postComment && (
+            <Image
+              style={styles.imageItem}
+              source={{ uri: postComment.data.previewImage }}
+              resizeMode="cover"
+            />
+          )}
+        </View>
         <ScrollView contentContainerStyle={styles.scrollContent}> 
           <View style={styles.mainContent}>
             <View style={styles.publicationContainer}>
-              <View style={styles.imageContainer}>
-                <Image
-                  style={styles.imageItem}
-                  source={require("../images/sunset.jpg")}
-                />
-              </View>
-              <View style={styles.commentsContainer}>
-                <View style={styles.commentItem}>
-                  <Image
-                    style={styles.commentAvatar}
-                    source={require("../images/avatar-blank.jpg")}
-                  />
-                  <View style={styles.comment}>
-                    <Text style={styles.commentText}>
-                      Really love your most recent photo. I’ve been
-                      trying to capture the same thing for a few
-                      months and would love some tips!
-                    </Text>
-                    <Text style={styles.commentDate}>{formattedDate}</Text>
-                  </View>
-                </View>
-                <View style={styles.commentItem}>
-                  <View style={styles.comment}>
-                    <Text style={styles.commentText}>
-                      A fast 50mm like f1.8 would help with the
-                      bokeh. I’ve been using primes as they tend to
-                      get a bit sharper images.
-                    </Text>
-                    <Text style={styles.commentDate}>{formattedDate}</Text>
-                  </View>
-                  <Image
-                    style={styles.commentAvatar}
-                    source={require("../images/avatar.jpg")}
-                  />
-                </View>
-                <View style={styles.commentItem}>
-                  <Image
-                    style={styles.commentAvatar}
-                    source={require("../images/avatar-blank.jpg")}
-                  />
-                  <View style={styles.comment}>
-                    <Text style={styles.commentText}>
-                      Thank you! That was very helpful!
-                    </Text>
-                    <Text style={styles.commentDate}>{formattedDate}</Text>
-                  </View>
-                </View>
-              </View>
+
+            <View style={styles.commentsContainer}>
+                {postComment &&
+                  postComment.data.comments.map((comment, index) => (
+                    <View
+                      style={[
+                        styles.commentItem,
+                        index % 2 === 0 ? styles.commentItemReverse : null,
+                      ]}
+                      key={index}
+                    >
+                      <Image
+                        style={styles.commentAvatar}
+                        source={require("../images/avatar-blank.jpg")}
+                      />
+                      <View
+                        style={[
+                          styles.comment,
+                          index % 2 === 0 ? styles.commentReverse : null,
+                        ]}
+                      >
+                        <Text style={styles.commentText}>
+                          {comment.comment}
+                        </Text>
+                        <Text style={styles.commentDate}>{comment.date}</Text>
+                      </View>
+                    </View>
+                  ))}
+             </View>
             </View>
           </View>
         </ScrollView>
@@ -117,14 +146,15 @@ const CommentsScreen = ({navigation}) => {
             value={comment}
             onChangeText={(text) => {
               setComment(text);
-              setIsCommentEntered(text !== "");
+              setIsCommentEntered(text.trim() !== "");
             }}
             onFocus={() => setFocusedInput("comment")}
             onBlur={() => setFocusedInput(null)}
           />
           <TouchableOpacity
             style={styles.buttonPost}
-            onPress={postComment}
+            onPress={postNewComment}
+            disabled={!isCommentEntered || comment.trim() === ""}
           >
             <Image
               style={styles.buttonPostIcon}
@@ -178,6 +208,39 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto-Medium",
     paddingBottom: 11,
     paddingTop: 11,
+  },
+  imageContainer: {
+    position: "relative",
+    marginLeft: 16,
+    marginTop: 32,
+    marginRight: 16,
+    height: 240,
+    borderRadius: 8,
+    backgroundColor: "#E8E8E8",
+    marginBottom: 32,
+  },
+  imageItem: {
+    position: "absolute",
+    top: 0,
+    width: "100%",
+    height: 240,
+    borderRadius: 8,
+  },
+  commentsContainer: {
+    gap: 24,
+  },
+  commentItem: {
+    gap: 16,
+    flexDirection: "row",
+    width: "100%",
+  },
+  commentItemReverse: {
+    flexDirection: "row-reverse",
+  },
+  commentAvatar: {
+    borderRadius: 28,
+    width: 28,
+    height: 28,
   },
   scrollContent: {
     flexGrow: 1,

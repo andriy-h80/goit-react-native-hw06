@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, StyleSheet, Image } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { AntDesign, Feather } from "@expo/vector-icons";
@@ -47,6 +47,13 @@ const Home = ({ navigation, route }) => {
       setTabBarVisible(true);
     } 
   }, [routeName, navigation]);
+
+  // let tabBarVisible = true;
+  // let routeName = getFocusedRouteNameFromRoute(route);
+  // if (routeName === "CreatePosts") {
+  //   tabBarVisible = false;
+  //   navigation.navigate("CreatePosts");
+  // }
 
   return (
     <View style={styles.container}>

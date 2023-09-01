@@ -10,20 +10,27 @@ import {
 import { TextInput } from "react-native-gesture-handler";
 import React, { useState, useEffect } from "react";
 import * as Location from "expo-location";
-import { Camera } from "expo-camera";
-import * as MediaLibrary from "expo-media-library"; 
+import { Camera, CameraType  } from "expo-camera";
+import * as MediaLibrary from "expo-media-library";
+import { useDispatch } from "react-redux";
+import { addPost } from "../redux/slices/postSlice";
   
 const CreatePostsScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+
   const [hasPermission, setHasPermission] = useState(null);
   const [cameraRef, setCameraRef] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
-
-  const [focusedInput, setFocusedInput] = useState(null);
-  
+  const [type, setType] = useState(CameraType.back);
+  const [focusedInput, setFocusedInput] = useState(false);
   const [photo, setPhoto] = useState("");
   const [title, setTitle] = useState("");
   const [locationName, setLocationName] = useState("");
-  const [geolocation, setGeolocation] = useState("");
+  const [geolocation, setGeolocation] = useState({
+    latitude: null,
+    longitude: null,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
   const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
@@ -46,13 +53,6 @@ const CreatePostsScreen = ({ navigation }) => {
         if (status !== "granted") {
           console.log("Permission to access location was denied");
         }
-  
-        let location = await Location.getCurrentPositionAsync({});
-        const coords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-        setGeolocation(coords);
       })();
     } catch (error) {
       console.log('Error permissions location: ', error.message);
@@ -73,18 +73,28 @@ const CreatePostsScreen = ({ navigation }) => {
   const takePhoto = async () => {
     if (cameraRef) {
       const { uri } = await cameraRef.takePictureAsync();
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Permission to access location was denied');
+      return;
+    }
+
+    try {
+      const locationData = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = locationData.coords;
+      setGeolocation({ latitude, longitude });
+    } catch (error) {
+      console.error('Error getting location', error);
+    }
+
       setPhoto(uri);
     }
   };
 
   const publishPost = () => {
     if (isFormValid) {
-      const post = {
-        photo,
-        title,
-        locationName,
-        geolocation,
-      };
+      dispatch(addPost({photo, title, locationName, geolocation}))
 
       navigation.navigate("Home");
     }
@@ -94,6 +104,7 @@ const CreatePostsScreen = ({ navigation }) => {
     setPhoto('');
     setTitle('');
     setLocationName('');
+    setGeolocation('');
   };
   
   return (
@@ -184,10 +195,10 @@ const CreatePostsScreen = ({ navigation }) => {
             <TextInput
               style={[
                 [styles.inputMap],
-                focusedInput === "locationName" && [styles.inputFocused],
+                focusedInput === "geolocation" && [styles.inputFocused],
               ]}
-              name="locationName"
-              value={locationName}
+              name="geolocation"
+              value={geolocation}
               placeholder="Місцевість"
               onChangeText={(text) => {
                 setLocationName(text);
@@ -195,11 +206,6 @@ const CreatePostsScreen = ({ navigation }) => {
               onFocus={() => setFocusedInput(true)}
               onBlur={() => setFocusedInput(false)}
             />
-            {geolocation.latitude && geolocation.longitude && (
-              <Text>
-                Latitude: {geolocation.latitude}, Longitude: {geolocation.longitude}
-              </Text>
-            )}
           </View>
           <TouchableOpacity
             style={[styles.button, isFormValid && styles.buttonValid ]}
@@ -236,7 +242,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(0, 0, 0, 0.3)",
     borderBottomStyle: "solid",
     borderBottomWidth: 1,
-    hesght: 44,
+    height: 44,
   },
   buttonReturn: {
     position: "absolute",
@@ -304,7 +310,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   cameraButtonIcon: {
-    color: "#FFFFFF",
+    tintColor: "#FFFFFF",
   },
   cameraImage: {
     width: 24,
@@ -360,6 +366,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     alignItems: "center",
     justifyContent: "center",
+    // color: "#212121",
   },
   button: {
     backgroundColor: "#E8E8E8",
