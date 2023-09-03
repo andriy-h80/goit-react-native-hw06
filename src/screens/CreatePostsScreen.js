@@ -25,12 +25,7 @@ const CreatePostsScreen = ({ navigation }) => {
   const [photo, setPhoto] = useState("");
   const [title, setTitle] = useState("");
   const [locationName, setLocationName] = useState("");
-  const [geolocation, setGeolocation] = useState({
-    latitude: null,
-    longitude: null,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
+  const [location, setLocation] = useState("");
   const [isFormValid, setIsFormValid] = useState(false);
 
   useEffect(() => {
@@ -83,7 +78,7 @@ const CreatePostsScreen = ({ navigation }) => {
     try {
       const locationData = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = locationData.coords;
-      setGeolocation({ latitude, longitude });
+      setLocation({ latitude, longitude });
     } catch (error) {
       console.error('Error getting location', error);
     }
@@ -94,7 +89,7 @@ const CreatePostsScreen = ({ navigation }) => {
 
   const publishPost = () => {
     if (isFormValid) {
-      dispatch(addPost({photo, title, locationName, geolocation}))
+      dispatch(addPost({photo, title, locationName, location}))
 
       navigation.navigate("Home");
     }
@@ -104,7 +99,7 @@ const CreatePostsScreen = ({ navigation }) => {
     setPhoto('');
     setTitle('');
     setLocationName('');
-    setGeolocation('');
+    setLocation('');
   };
   
   return (
@@ -195,10 +190,10 @@ const CreatePostsScreen = ({ navigation }) => {
             <TextInput
               style={[
                 [styles.inputMap],
-                focusedInput === "geolocation" && [styles.inputFocused],
+                focusedInput === "locationName" && [styles.inputFocused],
               ]}
-              name="geolocation"
-              value={geolocation}
+              name="locationName"
+              value={locationName}
               placeholder="Місцевість"
               onChangeText={(text) => {
                 setLocationName(text);

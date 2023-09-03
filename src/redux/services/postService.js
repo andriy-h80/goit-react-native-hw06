@@ -4,14 +4,14 @@ import { db } from "../../firebase/config";
 export const writePostToFirestore = async (
   previewImage,
   title,
-  locationText,
+  locationName,
   location
 ) => {
   try {
     const docRef = await addDoc(collection(db, "posts"), {
       previewImage: previewImage,
       title: title,
-      locationText: locationText,
+      locationName: locationName,
       location: location,
       comments: [],
       likes: 0,

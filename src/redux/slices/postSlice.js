@@ -13,7 +13,7 @@ const postSlice = createSlice({
         state.post.photo,
         state.post.title,
         state.post.locationName,
-        state.post.geoLocation
+        state.post.location
       );
     },
   },

@@ -1,4 +1,7 @@
 import 'react-native-gesture-handler';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from './src/redux/store';
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import RegistrationScreen from './src/screens/RegistrationScreen';
@@ -25,8 +28,9 @@ export default function App() {
   };
 
   return (
-    
-    <NavigationContainer>
+  <Provider store={store}>
+  <PersistGate persistor={persistor}>  
+  <NavigationContainer>
     <MainStack.Navigator initialRouteName="Registration">
         <MainStack.Screen name="Registration" component={RegistrationScreen} options={{ headerShown: false }}/>
         <MainStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }}/>
@@ -38,5 +42,7 @@ export default function App() {
         <MainStack.Screen name="Profile" component={ProfileScreen}  options={{ headerShown: false }} />
      </MainStack.Navigator>
   </NavigationContainer>
+  </PersistGate>
+  </Provider>
   );
 }
